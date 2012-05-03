@@ -23,7 +23,7 @@ namespace Msg
 
     public slots:
         void play();
-        void pause();
+        void stop();
         void seekUp();
         void seekDown();
         void stepUp();

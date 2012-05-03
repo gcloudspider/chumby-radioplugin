@@ -3,11 +3,12 @@
 
 #include <QLabel>
 #include <QtGui/QHBoxLayout>
+#include <QtGui/QListWidget>
 #include <QtCore/QDebug>
 
 #include "radioplugin.h"
 
-#include "../../controlpanel/plugin.h"
+#include "../../controlpanel/audioplugin.h"
 
 #include "../../controlpanel/musiccontrol.h"
 
@@ -78,7 +79,7 @@ namespace Msg
         timer->start();
     }
 
-    void ChumbyRadio::pause()
+    void ChumbyRadio::stop()
     {
         refreshCrad();
         timer->stop();
@@ -168,6 +169,7 @@ namespace Msg
 
     void ChumbyRadio::setStation( double station )
     {
+        qDebug() << "setStation called";
         refreshCrad();
 
         int ret = crad_tune_radio(p_crad, station);
@@ -177,6 +179,8 @@ namespace Msg
             qDebug() << "Tuning radio failed: " << CRAD_RETURN_CODE_LOOKUP[ret];
             return;
         }
+
+        qDebug() << "tuneRadio finished";
 
         settings->setValue("current", this->getStation());
         settings->sync();
@@ -192,13 +196,14 @@ namespace Msg
             emit stationChanged(station);
         else
             emit stationChanged(this->getStation());
-        emit radioText1Changed(QString((char*)p_crad->rds_data.radiotext[0]));
-        emit radioText2Changed(QString((char*)p_crad->rds_data.radiotext[1]));
+        emit radioText1Changed(QString((char*)p_crad->rds_data.radiotext_filled[0]));
+        emit radioText2Changed(QString((char*)p_crad->rds_data.radiotext_filled[1]));
         qDebug() << "RDS:"
-                 << QString((char*)p_crad->rds_data.name)
                  << QString((char*)p_crad->rds_data.radiotext[0])
+                 << QString((char*)p_crad->rds_data.radiotext[1])
                  << QString((char*)p_crad->rds_data.program_service_name)
-                 << QString((char*)p_crad->rds_data.radiotext_filled[0]);
+                 << QString((char*)p_crad->rds_data.radiotext_filled[0])
+                 << QString((char*)p_crad->rds_data.radiotext_filled[1]);
         pthread_mutex_unlock(&p_crad->rds_mutex);
         rds = !rds;
         timer->start();
@@ -248,6 +253,7 @@ namespace Msg
     void LongPressButton::press()
     {
         qDebug() << "button pressed...";
+        clickable = true;
         mTimer->start();
     }
 
@@ -308,7 +314,7 @@ namespace Msg
     // and shows the world when one is created/destroyed
     // and supplies a Show() method that announces its name
 
-    class RadioPlugin : public Plugin
+    class RadioPlugin : public AudioPlugin
     {
      public:
             RadioPlugin()
@@ -333,6 +339,87 @@ namespace Msg
                 qDebug() << "ChumbyRadio created";
             }
 
+    virtual QIcon* getIcon()
+    {
+        return new QIcon(":/icon/resources/radio.png");
+    }
+
+            virtual bool play(QString source)
+            {
+                if ( ! radio )
+                    return false;
+                qDebug() << source << "->" << source.toDouble();
+                if ( (source.compare("") != 0) && (source.toDouble() != 0.0) )
+                    radio->setStation(source.toDouble());
+                else
+                    return false;
+                qDebug() << "Channel parameter valid!";
+                radio->play();
+
+                return true;
+            }
+
+            virtual bool stop()
+            {
+                if ( !radio )
+                    return false;
+
+                radio->stop();
+
+                return true;
+            }
+
+            /*virtual QList<QString> getSources()
+            {
+                //TODO: this is ugly
+                QSettings* settings;
+                if ( radio )
+                    settings = radio->getSettings();
+                else
+                    settings = new QSettings("/mnt/usb/radio.conf", QSettings::NativeFormat);
+
+                QList<QString> sources = QList<QString>();
+                if ( settings->contains("preset1") )
+                    sources.append( settings->value("preset1").toString() );
+                if ( settings->contains("preset2") )
+                    sources.append( settings->value("preset2").toString() );
+                if ( settings->contains("preset3") )
+                    sources.append( settings->value("preset3").toString() );
+                if ( settings->contains("preset4") )
+                    sources.append( settings->value("preset4").toString() );
+                if ( settings->contains("preset5") )
+                    sources.append( settings->value("preset5").toString() );
+                if ( settings->contains("preset6") )
+                    sources.append( settings->value("preset6").toString() );
+
+                return sources;
+            }*/
+
+            virtual QList<QString> getSourceList()
+            {
+                QSettings* settings;
+                if ( radio )
+                    settings = radio->getSettings();
+                else
+                    settings = new QSettings("/mnt/usb/radio.conf", QSettings::NativeFormat);
+
+                QList<QString> sources = QList<QString>();
+                if ( settings->contains("preset1") )
+                    sources.append( settings->value("preset1").toString() );
+                if ( settings->contains("preset2") )
+                    sources.append( settings->value("preset2").toString() );
+                if ( settings->contains("preset3") )
+                    sources.append( settings->value("preset3").toString() );
+                if ( settings->contains("preset4") )
+                    sources.append( settings->value("preset4").toString() );
+                if ( settings->contains("preset5") )
+                    sources.append( settings->value("preset5").toString() );
+                if ( settings->contains("preset6") )
+                    sources.append( settings->value("preset6").toString() );
+
+                return sources;
+            }
+
             virtual QWidget* getWidget()
             {
                 QWidget* widget = new QWidget();
@@ -349,8 +436,8 @@ namespace Msg
 
                 QPushButton* playButton = new QPushButton();
                 playButton->setText("Play");
-                QPushButton* pauseButton = new QPushButton();
-                pauseButton->setText("Pause");
+                QPushButton* stopButton = new QPushButton();
+                stopButton->setText("Stop");
                 LongPressButton* seekUpButton = new LongPressButton();
                 seekUpButton->setText(">");
                 LongPressButton* seekDownButton = new LongPressButton();
@@ -375,7 +462,7 @@ namespace Msg
                 radiotext_layout->addWidget(radiotext1);
                 radiotext_layout->addWidget(radiotext2);
                 ctrl_layout->addWidget(playButton);
-                ctrl_layout->addWidget(pauseButton);
+                ctrl_layout->addWidget(stopButton);
                 preset_layout->addWidget(preset1, 0, 0);
                 preset_layout->addWidget(preset2, 0, 1);
                 preset_layout->addWidget(preset3, 0, 2);
@@ -386,7 +473,7 @@ namespace Msg
                 widget->setLayout(layout);
 
                 connect( playButton, SIGNAL( clicked() ), radio, SLOT( play() ) );
-                connect( pauseButton, SIGNAL( clicked() ), radio, SLOT( pause() ) );
+                connect( stopButton, SIGNAL( clicked() ), radio, SLOT( stop() ) );
                 connect( seekUpButton, SIGNAL( shortPressed() ), radio, SLOT( seekUp() ) );
                 connect( seekDownButton, SIGNAL( shortPressed() ), radio, SLOT( seekDown() ) );
                 connect( seekUpButton, SIGNAL( longPressed() ), radio, SLOT( stepUp() ) );
