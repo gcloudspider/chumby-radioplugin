@@ -21,3 +21,6 @@ SOURCES += radioplugin.cpp \
 	crad/qnio.c
 
 DESTDIR = ../
+
+RESOURCES += \
+    radioplugin.qrc
