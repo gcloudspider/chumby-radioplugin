@@ -17,7 +17,8 @@ namespace Msg
     {
         Q_OBJECT
     public:
-        ChumbyRadio();
+        static ChumbyRadio& getInstance();
+        static void destroy();
         QString getStation();
         QSettings* getSettings();
 
@@ -39,6 +40,10 @@ namespace Msg
         void radioText2Changed(QString);
 
     private:
+        ChumbyRadio();
+        ChumbyRadio(const ChumbyRadio&) {}
+        ~ChumbyRadio();
+        static ChumbyRadio* instance;
         void refreshCrad();
         crad_t *p_crad;
         QSettings* settings;
