@@ -22,38 +22,19 @@ ChumbyRadio::ChumbyRadio()
     qDebug() << "creating ChumbyRadio";
     settings = new QSettings("/mnt/usb/radio.conf", QSettings::NativeFormat);
 
-    qDebug() << "refreshing p_crad ...";
-    int ret = crad_refresh(p_crad, CRAD_DEFAULT_DEVICE_PATH);
-    qDebug() << "done";
-
-    if ( CRAD_FAILED(ret) )
-    {
-        qDebug() << "Refreshing radio handlers failed!";
-
-        crad_info_t crad_info = { 0 };
-
-        int ret = crad_create(&crad_info, &p_crad);
-
-        if ( CRAD_FAILED(ret) )
-        {
-            qDebug() << "Initializing radio failed!";
-            return;
-        }
-    }
-
     qDebug() << "loading setting";
-
-    if ( settings->contains("current") )
-    {
-        qDebug() << "Station found in config";
-        this->setStation( settings->value("current").toDouble() );
-    }
-
     qDebug() << "setting up rds timer";
 
     timer = new QTimer();
     timer->setInterval(5000);
     connect( timer, SIGNAL( timeout() ), this, SLOT( rdsUpdate() ) );
+		
+    if ( settings->contains("current") )
+    {
+				refreshCrad();
+        qDebug() << "Station found in config";
+        this->setStation( settings->value("current").toDouble() );
+    }
 }
 
 ChumbyRadio::~ChumbyRadio()
@@ -82,7 +63,19 @@ void ChumbyRadio::refreshCrad()
     if ( CRAD_FAILED( ret ) )
     {
         qDebug() << "Refreshing radio handlers failed (" << ret << ")!";
+
+        crad_info_t crad_info = { 0 };
+
+        int ret = crad_create(&crad_info, &p_crad);
+
+        if ( CRAD_FAILED(ret) )
+        {
+            qDebug() << "Initializing radio failed!";
+            return;
+        }
     }
+
+
 }
 
 void ChumbyRadio::play()
@@ -232,9 +225,10 @@ void ChumbyRadio::rdsUpdate()
 
 QString ChumbyRadio::getStation()
 {
-    double station = p_crad->frequency;
+	refreshCrad();
+	double station = p_crad->frequency;
 
-    return QString::number(station/100, 'f', 2);
+	return QString::number(station/100, 'f', 2);
 }
 
 void ChumbyRadio::getPreset()
