@@ -33,6 +33,7 @@ namespace Msg
         void rdsUpdate();
         void getPreset();
         void setPreset();
+				void loadStation();
 
     signals:
         void stationChanged(QString);

@@ -29,12 +29,6 @@ ChumbyRadio::ChumbyRadio()
     timer->setInterval(5000);
     connect( timer, SIGNAL( timeout() ), this, SLOT( rdsUpdate() ) );
 		
-    if ( settings->contains("current") )
-    {
-				refreshCrad();
-        qDebug() << "Station found in config";
-        this->setStation( settings->value("current").toDouble() );
-    }
 }
 
 ChumbyRadio::~ChumbyRadio()
@@ -183,7 +177,7 @@ void ChumbyRadio::seekUp()
 
 void ChumbyRadio::setStation( double station )
 {
-    qDebug() << "setStation called";
+    qDebug() << "setStation(" << station << ") called";
     refreshCrad();
 
     int ret = crad_tune_radio(p_crad, station);
@@ -227,8 +221,19 @@ QString ChumbyRadio::getStation()
 {
 	refreshCrad();
 	double station = p_crad->frequency;
-
+	qDebug() << "Station:" << station;
+	
 	return QString::number(station/100, 'f', 2);
+}
+
+void ChumbyRadio::loadStation()
+{
+	if ( settings->contains("current") )
+	{
+		refreshCrad();
+		qDebug() << "Station" << settings->value("current").toDouble()*100 << "found in config";
+		this->setStation( settings->value("current").toDouble() );
+	}
 }
 
 void ChumbyRadio::getPreset()
@@ -470,6 +475,7 @@ public:
         seekDownButton->setText("<");
 
         ChumbyRadio* radio = &ChumbyRadio::getInstance();
+				radio->loadStation();
 
         QLabel* station = new QLabel();
         station->setText(radio->getStation());
